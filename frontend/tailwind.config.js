@@ -4,17 +4,20 @@ export default {
   theme: {
     extend: {
       colors: {
-        primary: "#165DFF",
-        accent: "#FF7D00"
+        brand: {
+          50: "#eef4ff",
+          100: "#d9e6ff",
+          500: "#165dff",
+          600: "#0e4fd8",
+          700: "#0a3fa8"
+        }
       },
       fontFamily: {
-        sans: ["Inter", "system-ui", "-apple-system", "Segoe UI", "Roboto", "Helvetica", "Arial", "sans-serif"]
+        sans: ["Inter", "PingFang SC", "Microsoft YaHei", "system-ui", "sans-serif"]
       },
       boxShadow: {
-        card: "0 10px 40px rgba(15, 23, 42, 0.08)"
-      },
-      backgroundImage: {
-        "hero-gradient": "linear-gradient(120deg, rgba(22, 93, 255, 0.16), rgba(255, 125, 0, 0.18))"
+        card: "0 8px 30px rgba(15, 23, 42, 0.08)",
+        pop: "0 16px 50px rgba(15, 23, 42, 0.18)"
       }
     }
   },

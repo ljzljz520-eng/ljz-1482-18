@@ -1,16 +1,38 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import App from "./App";
+import { Toaster } from "react-hot-toast";
+import { AppRouter } from "@/router";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { SessionExpiredModal } from "@/components/SessionExpiredModal";
+import { useAuthStore } from "@/stores/authStore";
 import "./index.css";
 
-const root = document.getElementById("root");
+function Boot() {
+  const hydrate = useAuthStore((s) => s.hydrate);
+  React.useEffect(() => {
+    void hydrate();
+  }, [hydrate]);
 
-if (!root) {
-  throw new Error("Root container missing in index.html");
+  return (
+    <ErrorBoundary>
+      <AppRouter />
+      <SessionExpiredModal />
+      <Toaster
+        position="top-center"
+        toastOptions={{
+          style: {
+            borderRadius: "12px",
+            fontSize: "13px",
+            boxShadow: "0 10px 40px rgba(15,23,42,0.12)"
+          }
+        }}
+      />
+    </ErrorBoundary>
+  );
 }
 
-ReactDOM.createRoot(root).render(
+ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <App />
+    <Boot />
   </React.StrictMode>
 );

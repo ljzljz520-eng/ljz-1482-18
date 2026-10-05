@@ -1,0 +1,185 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  OWNER
+  EDITOR
+  VIEWER
+}
+
+enum ProjectStatus {
+  ACTIVE
+  RETIRED
+}
+
+enum SessionStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum MaterialKind {
+  VIDEO
+  AUDIO
+  IMAGE
+  DOCUMENT
+}
+
+enum NodeKind {
+  SESSION
+  MATERIAL
+}
+
+enum MigrationStatus {
+  RESOLVED
+  DELETED
+  REVOKED
+}
+
+enum DeleteState {
+  ACTIVE
+  DELETED
+}
+
+model User {
+  id           String           @id @default(cuid())
+  email        String           @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime         @default(now())
+  memberships  ProjectMember[]
+  versions     ScriptVersion[]
+}
+
+model Project {
+  id          String          @id @default(cuid())
+  name        String
+  description String
+  status      ProjectStatus   @default(ACTIVE)
+  version     Int             @default(1)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  members     ProjectMember[]
+  sessions    SessionNode[]
+  materials   Material[]
+  migrations  NodeMigration[]
+  deletions   DeleteRecord[]
+}
+
+model ProjectMember {
+  id        String   @id @default(cuid())
+  projectId String
+  userId    String
+  role      Role     @default(VIEWER)
+  createdAt DateTime @default(now())
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@index([userId])
+}
+
+model SessionNode {
+  id          String        @id @default(cuid())
+  projectId   String
+  title       String
+  summary     String?
+  status      SessionStatus @default(DRAFT)
+  orderIndex  Int           @default(0)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  project     Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  script      ScriptDoc?
+  snapshots   Snapshot[]
+
+  @@index([projectId])
+}
+
+model Material {
+  id          String       @id @default(cuid())
+  projectId   String
+  name        String
+  kind        MaterialKind
+  url         String
+  deleteState DeleteState  @default(ACTIVE)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  deletedAt   DateTime?
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+model ScriptDoc {
+  id        String          @id @default(cuid())
+  sessionId String          @unique
+  currentVersion Int        @default(1)
+  updatedAt DateTime        @updatedAt
+  session   SessionNode     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  versions  ScriptVersion[]
+}
+
+model ScriptVersion {
+  id         String     @id @default(cuid())
+  scriptId   String
+  version    Int
+  steps      Json
+  title      String
+  authorId   String
+  baseVersion Int?
+  note       String?
+  createdAt  DateTime   @default(now())
+  script     ScriptDoc  @relation(fields: [scriptId], references: [id], onDelete: Cascade)
+  author     User       @relation(fields: [authorId], references: [id])
+  snapshots  Snapshot[]
+
+  @@unique([scriptId, version])
+  @@index([scriptId])
+}
+
+model Snapshot {
+  id          String        @id @default(cuid())
+  projectId   String
+  sessionId   String
+  versionId   String        @unique
+  label       String
+  createdAt   DateTime      @default(now())
+  session     SessionNode   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  version     ScriptVersion @relation(fields: [versionId], references: [id])
+
+  @@index([sessionId])
+}
+
+model NodeMigration {
+  id             String         @id @default(cuid())
+  projectId      String
+  legacyNodeId   String
+  nodeKind       NodeKind
+  newNodeId      String?
+  status         MigrationStatus
+  note           String?
+  migratedAt     DateTime       @default(now())
+  project        Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, legacyNodeId])
+}
+
+model DeleteRecord {
+  id          String      @id @default(cuid())
+  projectId   String
+  resourceType String
+  resourceId  String
+  name        String?
+  state       DeleteState @default(DELETED)
+  reason      String?
+  deletedAt   DateTime    @default(now())
+  project     Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, resourceId])
+}
