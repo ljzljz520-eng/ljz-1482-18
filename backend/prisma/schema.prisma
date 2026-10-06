@@ -1,0 +1,156 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  EDITOR
+  VIEWER
+}
+
+enum ProjectStatus {
+  ACTIVE
+  RETIRED
+}
+
+enum AssetType {
+  IMAGE
+  AUDIO
+  VIDEO
+  TEXT
+}
+
+model User {
+  id           String      @id @default(cuid())
+  email        String      @unique
+  displayName  String
+  passwordHash String
+  memberships  Membership[]
+  migrations     ModuleMigration[]
+  sessions     Session[]
+  exports      ExportSnapshot[]
+  createdAt    DateTime    @default(now())
+}
+
+model Project {
+  id             String           @id @default(cuid())
+  slug           String           @unique
+  name           String
+  status         ProjectStatus    @default(ACTIVE)
+  currentModule  String           @default("workbench-v2")
+  requiredModule String           @default("workbench-v2")
+  schemaVersion  Int              @default(2)
+  memberships    Membership[]
+  sessions       Session[]
+  assets         Asset[]
+  scriptVersions ScriptVersion[]
+  exports        ExportSnapshot[]
+  migrations     ModuleMigration[]
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@index([status])
+}
+
+model Membership {
+  id        String  @id @default(cuid())
+  userId    String
+  projectId String
+  role      Role
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, projectId])
+  @@index([projectId])
+}
+
+model Session {
+  id           String      @id @default(cuid())
+  slug         String      @unique
+  projectId    String
+  title        String
+  step         String      @default("outline")
+  scriptText   String      @default("")
+  baseVersion  Int         @default(1)
+  deletedAt    DateTime?
+  createdById  String
+  project      Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy    User        @relation(fields: [createdById], references: [id])
+  versions     ScriptVersion[]
+  exports      ExportSnapshot[]
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@index([projectId, deletedAt])
+}
+
+model Asset {
+  id        String    @id @default(cuid())
+  slug      String    @unique
+  projectId String
+  name      String
+  type      AssetType
+  url       String
+  notes     String    @default("")
+  deletedAt DateTime?
+  project   Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([projectId, deletedAt])
+}
+
+model ScriptVersion {
+  id         String  @id @default(cuid())
+  projectId  String
+  sessionId  String
+  version    Int
+  content    String
+  authorId   String
+  project    Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  session    Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([sessionId, version])
+  @@index([projectId, createdAt])
+}
+
+model ExportSnapshot {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  projectId   String
+  sessionId   String?
+  label       String
+  scriptText  String
+  scriptVersion Int
+  step        String
+  exportedById String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  session     Session? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  exportedBy  User     @relation(fields: [exportedById], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@index([projectId, createdAt])
+}
+
+model ModuleMigration {
+  id             String   @id @default(cuid())
+  projectId      String
+  fromModule     String
+  toModule       String
+  fromSchema     Int
+  toSchema       Int
+  status         String   @default("COMPLETED")
+  note           String?
+  migratedById   String
+  migratedBy     User     @relation(fields: [migratedById], references: [id])
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  migratedAt     DateTime @default(now())
+
+  @@index([projectId, migratedAt])
+}

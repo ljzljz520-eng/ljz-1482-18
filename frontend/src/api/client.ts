@@ -1,18 +1,37 @@
-import axios from "axios";
-import { toast } from "react-hot-toast";
+import axios, { AxiosError } from 'axios';
+import { useAuthStore } from '../auth/authStore';
 
-const api = axios.create({
-  // @ts-ignore
-  baseURL: import.meta.env.VITE_API_BASE || "/api",
-  timeout: 10000
+export const api = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE || '/api',
+  timeout: 12000
+});
+
+api.interceptors.request.use((config) => {
+  const token = useAuthStore.getState().token;
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
 });
 
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    toast.error(error?.response?.data?.message ?? "网络请求超时，请稍后重试");
+  (error: AxiosError<{ message?: string; code?: string }>) => {
+    const status = error.response?.status;
+    if (status === 401) {
+      const auth = useAuthStore.getState();
+      auth.markSessionExpired();
+    }
     return Promise.reject(error);
   }
 );
 
-export default api;
+export function getApiErrorMessage(error: unknown, fallback = '网络请求失败，请稍后重试') {
+  if (axios.isAxiosError(error)) {
+    return error.response?.data?.message || error.message || fallback;
+  }
+  return error instanceof Error ? error.message : fallback;
+}
+
+export function getApiError<T = unknown>(error: unknown): T | undefined {
+  if (axios.isAxiosError(error)) return error.response?.data as T | undefined;
+  return undefined;
+}

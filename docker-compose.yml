@@ -1,13 +1,56 @@
-version: "3.9"
 services:
+  db:
+    image: postgres:16-alpine
+    container_name: creative-workbench-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: workbench
+      POSTGRES_PASSWORD: workbench_pwd
+      POSTGRES_DB: creative_workbench
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U workbench -d creative_workbench"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - workbench-net
+
+  backend:
+    build: ./backend
+    container_name: creative-workbench-api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://workbench:workbench_pwd@db:5432/creative_workbench?schema=public
+      JWT_SECRET: creative-workbench-demo-secret-change
+      JWT_EXPIRES_IN: 120s
+      JWT_EXPIRES_IN_SECONDS: 120
+      PORT: 3001
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3001:3001"
+    networks:
+      - workbench-net
+
   frontend:
     build: ./frontend
-    container_name: park-frontend
+    container_name: creative-workbench-web
+    restart: unless-stopped
+    depends_on:
+      - backend
     ports:
       - "3000:80"
-    restart: unless-stopped
     networks:
-      - park-net
+      - workbench-net
+
+volumes:
+  postgres_data:
+
 networks:
-  park-net:
+  workbench-net:
     driver: bridge
